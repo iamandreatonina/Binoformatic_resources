@@ -1,34 +1,181 @@
 ---
 title: "Bioinformatics_resource_project"
-author: "Andrea Tonina"
-date: "2023-04-06"
+author: "Andrea Tonina & Gloria Lugoboni"
+date: "2023-0-0"
 output: html_document
 ---
+# **Bioinfomrtics resource project with dataset of Thyroid carcinoma**
 
 1. Load the RData file. The following three data-frames are available:
 a. raw_counts_df = contains the raw RNA-seq counts
 b. c_anno_df = contains sample name and condition (case and control)
 c. r_ anno_df = contains the ENSEMBL genes ids, the length of the genes and the genes symbols
+```{r}
+load('./files/Thyroid_carcinoma.RData')
 
+View(raw_counts_df)
+View(c_anno_df)
+View(r_anno_df)
+
+```
 
 
 2. Update raw_count_df and r_anno_df extracting only protein coding genes.
 a. Use biomaRt package to retrieve the needed information
 b. Next tasks should use the new data-frames you have created
+```{r}
+library(biomaRt)
+library(tidyverse)
 
+
+# to siplay the avaible ensembl mrt datasets 
+listMarts()
+# biomart                version
+# 1 ENSEMBL_MART_ENSEMBL      Ensembl Genes 109
+# 2   ENSEMBL_MART_MOUSE      Mouse strains 109
+# 3     ENSEMBL_MART_SNP  Ensembl Variation 109
+# 4 ENSEMBL_MART_FUNCGEN Ensembl Regulation 109
+
+
+
+######### the useMart function enable us to select a biomart database to use and the assosciated datasets
+
+ensembl <- useMart(biomart = 'ensembl', dataset = 'hsapiens_gene_ensembl')
+filtering <- r_anno_df$ensembl_gene_id
+
+# using the library biomart we can retrive query from BioMart database using a set of filters and corresponding values 
+# the attributes we want to retrive need to be specifieds  and here correspond to ensembl_gene_id, external_gene_name, gene_biotype. 
+# specifically ensembl_gene_id is need to be filtered based on the ensembl_gene_id of our data frame r_ anno_df while gene_biotype rappresent the infomration we needed to retrive, so if the genes are coding or not 
+query <- getBM(attributes = c('ensembl_gene_id', 'external_gene_name','gene_biotype'),filters = c('ensembl_gene_id'),values = list(filtering),mart = ensembl)
+
+
+###### right here we filtered the query with only the genes twhich are conding genes (also using filter from dplyr)
+query_protein_coding <- query %>% 
+                        filter(gene_biotype == 'protein_coding')
+
+# after that we filter both r_anno_df and raw_counts_df based on the enesembl_gene_id with 
+r_anno_df_pro_cod <- r_anno_df %>% 
+                     filter(ensembl_gene_id %in% query_protein_coding$ensembl_gene_id)
+
+raw_count_df_pro_cod <- raw_counts_df[which(rownames(raw_counts_df) %in% query_protein_coding$ensembl_gene_id),]
+
+```
 
 
 3. Perform differential expression analysis using edgeR package and select up- and down-regulated genes using a p-value cutoff of 0.01, a log fold change ratio >1.5 for up-regulated genes and < (-1.5) for down-regulated genes and a log CPM >1. Relax the thresholds if no or few results are available.
 a. Use the workflow we developed during the course
 b. Filter raw counts data retaining only genes with a raw count >20 in at least 5 Cases or 5 Control samples
-c. Create a volcano plot of your results
+c. Create a volcano plot of your results  
 d. Create an annotated heatmap focusing only on up- and downregulated genes
+```{r}
+library(edgeR)
+library(fgsea)
+
+count_thr <- 20 # raw counts data retaining only genes with a raw count >20 
+
+repl_thr <- 5 # 5 Cases or 5 Control samples
+
+
+# with filter_vec we create the vector of samples that surpass the tresholds witj raw count >= 20 
+filter_vec <- apply(raw_count_df_pro_cod,1, function(y) max(by(y,c_anno_df$condition, function(x) sum(x >= count_thr))))
+#summary of the vector
+table(filter_vec)
+
+# create new dataframe filtered based on the filter_vec with trahold on the replicates 
+filter_count_df <- raw_count_df_pro_cod[filter_vec >= repl_thr,]
+dim(filter_count_df)
+
+# update the gene annotation using the filter -> it is necessary that the gene annotation file is consistent with the data files we are using
+filter_anno_df <- r_anno_df_pro_cod[rownames(filter_count_df),] # we filter the gene annotation file
+dim(filter_anno_df) 
+
+# they have the same dimension 
+
+# create a DGElist object
+edge_c <- DGEList(counts = filter_count_df, group = c_anno_df$condition, samples = c_anno_df, genes = filter_anno_df)
+edge_c
+
+# normaliziation using calcNormFactor using TMM method 
+
+edge_n <- calcNormFactors(edge_c,method = 'TMM')
+edge_n
+
+#create a cpm table to normalized expression values 
+cpm_table <- as.data.frame(round(cpm(edge_n),2))
+head(cpm_table)
+
+
+#create the desing to perfomr the DE analysis 
+
+desing <- model.matrix(~0+group, data = edge_n$samples) # group is the data 
+colnames(desing) <- levels(edge_n$samples$group)
+rownames(desing) <- edge_n$samples$sample
+desing
+
+
+#calculate dispartion and fit with edgeR
+
+edge_d <- estimateDisp(edge_n,design = desing)
+View(edge_d)
+
+# fit with glmQLFIT to retrive the p value 
+
+edge_f <- glmQLFit(edge_d,design = desing)
+View(edge_f)
+
+#definition of the contrast, which are donitions to be compared 
+
+contro <- makeContrasts('case-control', levels = desing)
+
+
+# fit the moel
+
+edge_t <- glmQLFTest(edge_f,contrast = contro) # contrin the results of the DE Analysis 
+View(edge_t)
+
+
+# sort by fold change 
+
+DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 becasue w e took into consideration all the vatiables inside edge_t, so 99 percent of singificativity of the test 
+View(DEGs)
+
+DEGs$class <- '='
+
+# selection based on log fold change ratio >1.5 for up-regulated genes and < (-1.5) for down-regulated genes and a log CPM >1
+
+DEGs$class[which(DEGs$logCPM > 1 & DEGs$logFC > 1.5)] = '+'
+DEGs$class[which(DEGs$logCPM > 1 & DEGs$logFC < (-1.5))] = '-'
+DEGs <- DEGs[order(DEGs$logFC, decreasing = T),]
+
+View(DEGs)
+table(DEGs$class)
+
+# vulcano plot
+input_df<-DEGs
+xlabel<- "log2 FC control vs case"
+ylabel<-"-log10 p-value"
+
+par(fig=c(0,1, 0,1), mar=c(4,4,1,2), mgp=c(2, 0.75,0))
+plot(DEGs$logFC,-log(DEGs$PValue, base=10), xlab=xlabel,ylab = ylabel, col=ifelse(DEGs$class=="=", "grey70", "olivedrab4"), pch=20, frame.plot=TRUE, cex=0.8, main="Volcano plot") %>% 
+abline(v = 0, lty = 2, col="grey20")
+
+
+#heatmap
+cols <- c(rep("chartreuse4",50),rep("burlywood3",50)) # 50 -50 because based on the deseign there are 1:100 
+pal <- c('blue','white','red')
+pal <- colorRampPalette(pal)(100)
+heatmap(as.matrix(cpm_table[which(rownames(cpm_table) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = cols, cexCol = 0.5,margins = c(4,4), col = pal, cexRow = 0.2)
+
+
+```
 
 
 
 4. Perform gene set enrichment analysis using clusterProfiler R package.
 a. Perform both GO (BP and MF) and WP analysis
 b. Report the top 10 enriched GO terms and the top 10 enriched WP pathways resulting from both up- and down-regulated gene lists
+
+
 
 
 
@@ -45,7 +192,7 @@ a. use a window of 500 nucleotides upstream each gene
 7. Select one among the top enriched TFs, compute the empirical distributions of scores for all PWMs that you find in MotifDB for the selected TF and determine for all of them the distribution (log2) threshold cutoff at 99.75%.
 
 
-
+--------------
 
 8. Identify which up-regulated (or down-regulated depending on the choice you made at point 7) genes have a region in their promoter (defined as previously) with binding scores above the computed thresholds for any of the previously selected PWMs.
 a. Use pattern matching as done during the course
