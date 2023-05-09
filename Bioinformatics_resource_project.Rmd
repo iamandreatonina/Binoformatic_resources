@@ -11,7 +11,7 @@ output: html_document
   b. c_anno_df = contains sample name and condition (case and control)
   c. r_ anno_df = contains the ENSEMBL genes ids, the length of the genes and the genes symbols
 ```{r}
-load('./files/Thyroid_carcinoma.RData')
+load('./file/Thyroid_carcinoma.RData')
 
 View(raw_counts_df)
 View(c_anno_df)
@@ -447,19 +447,19 @@ nodes <- nodes %>% filter(!nodes$external_gene_name %in% c(setdiff( nodes$extern
 net <- graph_from_data_frame(d = link , directed = F, vertices = nodes )   
 net
 
+net<-igraph::simplify(net)
+
 deg_net <- igraph::degree(net, mode ='out')
 clrvek_net <- pmax(0,pmin(deg_net,4))
 clrname_net <- c('0'='lightgray','1'='#FF1744','2'='#F0A830','3'='#A155B9','4'='#165BAA')
-net<-simplify(net)
-ggnet2(net,size = 'outdegree', max_size = 3 ,color = clrvek_net, label = T, label.size = 2, legend.position = 'bottom', size.cut = 3, color.legend = 'clr~degree',palette = clrname_net)
 
+ggnet2(net,size = 'outdegree', max_size = 3 ,color = clrvek_net, label = T, label.size = 2, legend.position = 'bottom', size.cut = 3, color.legend = 'clr~degree',palette = clrname_net)
 
 c <- igraph::components(net, mode ='strong')
 c
 
 net.c <- induced_subgraph(net, V(net)[which(c$membership == 1)])
-
-net.c <- simplify(net.c)
+net.c <- igraph::simplify(net.c)
 
 deg <- igraph::degree(net.c, mode ='out')
 clrvek <- pmax(0,pmin(deg,4))
