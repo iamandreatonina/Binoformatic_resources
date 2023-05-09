@@ -119,6 +119,7 @@ edge_n # identical to edge_c just a column called normalization factor is added.
 ```
 
 We can then create a CPM table to normalize expression values. We use the CPM function and transform the result in a dataframe with function as.data.frame().
+Also we create another CPM table in log10 transformation.
 ```{r}
 cpm_table <- as.data.frame(round(cpm(edge_n),2)) # the library size is scaled by the normalization factor
 head(cpm_table)
@@ -191,9 +192,9 @@ plot(DEGs$logFC,-log(DEGs$PValue, base=10), xlab=xlabel,ylab = ylabel, col=ifels
 abline(v = 0, lty = 2, col="grey20")
 ```
 
-We can also represent the genes using a heatmap. A clustering process is operated. We plot only up or down expressed genes.
-We can see that thanks to clusterization, chunks of expressed genes are outlined. 
-the majority are up expressed genes. ????? che se faa
+We can also represent the genes using a heatmap. A clustering process is operated. We plot only up or down expressed genes using data from both the normalized CPM and the log transformation of the CPM table.
+We can see that thanks to clusterization, chunks of expressed genes are outlined. Specifically, in the case of the CPM log table, a more refinement clusterization is observed, and minor contamination at the level of the division between "case" samples and "control" samples is observed. We need to remember that contamination that took place during the collection of tissue samples is able to influence the clustering process.
+From both plots a clear difference in expression between tumor and control samples is observed, indicating that the expression of the genes differs between the two cases, as expected since we are performing a DEGs analysis.
 ```{r}
 
 col <- rep('chartreuse4', 100)
@@ -201,19 +202,9 @@ col[which(c_anno_df$condition == 'case')] <- 'burlywood3'
 pal <- c('blue','white','red')
 pal <- colorRampPalette(pal)(100)
 
-heatmap(as.matrix(cpm_table[which(rownames(cpm_table) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = col, cexCol = 0.5,
-        margins = c(4,4), col = pal, cexRow = 0.2) 
+heatmap(as.matrix(cpm_table[which(rownames(cpm_table) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = col, cexCol = 0.5,margins = c(4,4), col = pal, cexRow = 0.2) 
 
-
-####################
-
-col <- rep('chartreuse4', 100)
-col[which(c_anno_df$condition == 'case')] <- 'burlywood3' 
-pal <- c('blue','white','red')
-pal <- colorRampPalette(pal)(100)
-
-heatmap(as.matrix(cpm_table_log[which(rownames(cpm_table_log) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = col, cexCol = 0.5,
-        margins = c(4,4), col = pal, cexRow = 0.2) 
+heatmap(as.matrix(cpm_table_log[which(rownames(cpm_table_log) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = col, cexCol = 0.5, margins = c(4,4), col = pal, cexRow = 0.2) 
 ```
 
 
@@ -232,28 +223,27 @@ convert<-getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "external_gene_n
 
 ```
 
-We add the information of convert in the initial file of DEGs by using the command merge
+We add the information of convert in the initial file of DEGs by using the command merge.
 ```{r}
 DEGs<-merge(DEGs, convert, by.x = "ensembl_gene_id", by.y = "ensembl_gene_id")
 
 ```
 
-Then we remove the NA and the duplicates inside the new DEGs
+Then we remove the NA and the duplicates inside the new DEGs.
 ```{r}
 DEGs<-DEGs[which(!is.na(DEGs$entrezgene_id)),]
 DEGs<-DEGs[-which(duplicated(DEGs$entrezgene_id)),]
 
 ```
 
-We create a new list of only the up regulated genes 
+We create a new list of only the up-regulated genes. 
 ```{r}
 
 UPDegs <- DEGs %>% filter(class == '+') # up regulated 
 
 ```
 
-
-Perform Gene Ontology enrichment analysis (biologica process).
+Perform Gene Ontology enrichment analysis (biological process).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here BP for biological process and the methods to adjust the p-value.
 ```{r}
 
@@ -290,7 +280,7 @@ head(ego_MF_UP,10)
 ```
 
 We perform KEGG enrichment analysis.
-We use function enrichWP to retrieve the list of genes from the wiki pathways, we can see which pathways are more expressed 
+We use function enrichWP to retrieve the list of genes from the wiki pathways, we can see which pathways are more expressed.
 ```{r}
 library(pathview)
 
@@ -301,7 +291,7 @@ head(eWP_UP, 10)
 ```
 
 Then we proceed with the same processes but for down-regulated:
-SO we create a new list of only the down regulated genes 
+So we create a new list of only the down-regulated genes.
 ```{r}
 
 DWDegs <- DEGs %>% filter(class == '-') 
@@ -345,8 +335,8 @@ head(eWP_DW, 10)
 
 5. Use the pathview R package to visualize one pathway you find enriched using the up-regulated gene list.
 
-We can use the library pathway and specifically the function pathway that generate a local cartoon of the pathway of interest underling the DEGs genes using specific colors. A measure of the DE is needed, here we use the Log Fold Change.
-The pathway we represent is choose by looking at the top 10 expressed pathway from point 4, specifically we selected 'Vitamin D receptor pathway' for which we found in https://www.genome.jp/entry/hsa:7421 the corresponding pathway ID code hsa04928 for Parathyroid hormone synthesis, secretion and action.
+We can use the library pathway and specifically the function pathway that generates a local cartoon of the pathway of interest underlying the DEGs genes using specific colors. A measure of the DE is needed, here we use the Log Fold Change.
+The pathway we represent is chosen by looking at the top 10 expressed pathways from point 4, specifically, we selected the 'Vitamin D receptor pathway' for which we found in https://www.genome.jp/entry/hsa:7421 the corresponding pathway ID code hsa04928 for Parathyroid hormone synthesis, secretion, and action.
 ```{r}
 library(pathview)
 logFC <-UPDegs$logFC
@@ -360,7 +350,7 @@ pathview(gene.data = logFC, pathway.id = 'hsa04928',species = 'human')
 
 We choose to search for transcription factors (TFs) with enriched scores in the promoters of all up-regulated genes.
 We first retrieved the sequences of the promoters using the function getSequence and explicating the promoter identifier in the parameter seqType, using a window of 500 nucleotides upstream.
-Then, we used DNAStringSet function to create DNAString object, needed to operate the motif enrichment.
+Then, we used the DNAStringSet function to create a DNAString object, needed to operate the motif enrichment.
 We can now operate the enrichment and thanks to the function groupReport we obtain the TF enrichments across many sequences.
 ```{r}
 
@@ -390,7 +380,7 @@ plot(TF_enrichment[1:5]) # the first 5
 
 We chose to analyze the first TF among the top enriched ones. 
 We create an object containing the metadata related to the chosen TF and the corresponding PPM using the function query(). We use the PPM to compute the PWM matrix and the distribution of scores, using the function motifEcdf.
-Finally, we determined the threshold cutoff at 99.75% applying to the ecdf the quantile function and explicating the corresponding quantile wanted (here 1-25e-4)
+Finally, we determined the threshold cutoff at 99.75% applying to the ecdf the quantile function and explicating the corresponding quantile wanted (here 1-25e-4).
 ```{r}
 
 tfs<-TF_enrichment$target[1]
@@ -410,7 +400,7 @@ threshlod
 8. Identify which up-regulated (or down-regulated depending on the choice you made at point 7) genes have a region in their promoter (defined as previously) with binding scores above the computed thresholds for any of the previously selected PWMs.
 a. Use pattern matching as done during the course
 
-We first compute the scores using motifScores function. For each PWM we apply the cutoff and we obtain matrices in which the rows represent the promoters and the columns the motifs. Here we obtain a matrix 688 x 1 since we are investigating one motif (=the one of the TF selected in the point above). Each matrix box is associated to a score representing the match of the TF motif to the promoter.
+We first compute the scores using the motifScores function. For each PWM we apply the cutoff and we obtain matrices in which the rows represent the promoters and the columns the motifs. Here we obtain a matrix 688 x 1 since we are investigating one motif (=the one of the TF selected in the point above). Each matrix box is associated with a score representing the match of the TF motif to the promoter.
 We then calculate how good is the TF in binding the promoters, by calculating the frequency of the matches that are above a fixed threshold (the threshold computed in the previous point at 99.75%).
 ```{r}
 score = motifScores(new_Seq, PWM_tfs, raw.scores = F, cutoff = threshlod)
@@ -419,12 +409,12 @@ length(which(apply(score,1,sum) > 0)) /length(score)
 # we count the boxes that have alt least one score major that the threshold, then divided int for their number to get the frequency 
 
 ```
-0.9287791 is the result, indicating that the selected TF is able to bind almost all the promoters with a good affinity, as we expected since we chose the top enriched TF.
+0.9287791 is the result, indicating that the selected TF can bind almost all the promoters with a good affinity, as we expected since we chose the top enriched TF.
 
 
 9. Use STRING database to find PPI interactions among differentially expressed genes and export the network in TSV format.
 
-We created a .txt file containing all the gene_names of the up-regualated genes identified in the previous points. We then uploaded the file to the STRING tool to obtain and create a network. We finally downloaded the output in .tsv format, the file contain all the information on the edges found between the input genes (=our nodes).
+We created a .txt file containing all the gene_names of the up-regulated genes identified in the previous points. We then uploaded the file to the STRING tool to obtain and create a network. We finally downloaded the output in .tsv format, the file contains all the information on the edges found between the input genes (=our nodes).
 ```{r}
 write.table(unique(UPDegs$external_gene_name.x),sep = '\t', file = 'UPDEGs.txt',row.names = F, col.names = F, quote = T)
 ```
@@ -432,11 +422,12 @@ write.table(unique(UPDegs$external_gene_name.x),sep = '\t', file = 'UPDEGs.txt',
 
 10. Import the network in R and using igraph package and identify and plot the largest connected component. 
 
-We first created the nodes annotations using bioMart. We filtered using the up-regulated genes names and selected as attributes the gene id, the description, the biotype, the start and end position, the chromosome name, and the strand.
+We first created the node annotations using bioMart. We filtered using the up-regulated genes names and selected as attributes the gene id, the description, the biotype, the start and end position, the chromosome name, and the strand.
 We then reduced the nodes, eliminating repetitions.
 We imported the information obtained by STRING and filtered it keeping only the edges between nodes that were present in our node variable. We operated a similar operation eliminating the nodes not found in the link variable.
 We finally constructed the network using the library igraph, specifically the function graph_from_data_frame, defining as edges the link variable and as vertices the nodes variable.
-
+The identification of the largest connected component was possible using the function components() of igraph with which it is possible to specify if we are looking at weakly or strongly connected components. It is therefore possible to obtain the cluster of membership for each node and identify the largest cluster between the defined ones. Here we found cluster 1 as the largest, with a total of 510 nodes, it was possible to extract it from the total graph using the function induced_subgraph, specifying the nodes to extract.
+Since the total graph and the subgraph were large graphs with >500 nodes we decided to plot them using the ggnet2 function, part of the GGally package. We also decided to resize and color the nodes based on the additional information on the number of outdegree edges.
 ```{r}
 library(igraph)
 library(GGally)
