@@ -468,3 +468,6 @@ clrname <- c('0'='lightgray','1'='#FF1744','2'='#F0A830','3'='#A155B9','4'='#165
 ggnet2(net.c,size = 'outdegree', max_size = 4 ,color = clrvek, label = T, label.size = 2, legend.position = 'bottom', size.cut = 5, color.legend = 'clr~degree',palette = clrname)
 
 ```
+
+
+Everything can be found in :https://github.com/iamandreatonina/Bioinformatics_Romanel_project-
