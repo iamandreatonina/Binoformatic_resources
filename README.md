@@ -1,6 +1,6 @@
-# Bioinformatics_Romanel_project
+# Bioninformatic Resource Project
 
-Project for the course of Laboratory of Computational Microbial Genomics held by Alessandro Romanel (A.Y. 2022-2023).
+Project for the course of Bioinformatic Resource held by Alessandro Romanel (A.Y. 2022-2023).
 
 Topic: Perform an anlysis of the selected dataset representing RNA-seq count data extracted from different cancer datasets from the Cancer Genome Atlas (TCGA).
 
