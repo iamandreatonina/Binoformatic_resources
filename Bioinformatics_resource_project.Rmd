@@ -8,6 +8,7 @@ output: html_document
 
 # **Bioinformatics resource project with data set of Thyroid carcinoma**
 
+### Task 1 
 1. Load the RData file. The following three data-frames are available:
   a. raw_counts_df = contains the raw RNA-seq counts
   b. c_anno_df = contains sample name and condition (case and control)
@@ -21,7 +22,8 @@ View(r_anno_df)
 
 ```
 
-
+***
+### Task 2
 2. Update raw_count_df and r_anno_df extracting only protein coding genes.
   a. Use biomaRt package to retrieve the needed information
   b. Next tasks should use the new data-frames you have created
@@ -30,17 +32,20 @@ library(biomaRt)
 library(tidyverse)
 library(tidyverse)
 ```
+<br>
 
 To display the available data bases
 ```{r}
 listMarts()
 ```
+<br>
 
 The function useMart enables us to select a biomart database to use and the associated datasets. We select those with the parameters biomart and dataset respectively. The object returned is a Mart Class and can be seen as a connection to the Biomart database selected.
 ```{r}
 ensembl <- useMart(biomart = 'ensembl', dataset = 'hsapiens_gene_ensembl')
 
 ```
+<br>
 
 By using the library biomart we can retrieve a query from BioMart database using a set of filters and corresponding values, the attributes we want to retrieve need to be specified and here correspond to ensembl_gene_id, external_gene_name, gene_biotype. Specifically ensembl_gene_id need to be filtered based on the ensembl_gene_id of our data frame r_ anno_df while gene_biotype represents the information we need, so if the genes are coding or not.
 ```{r}
@@ -48,12 +53,14 @@ filtering <- r_anno_df$ensembl_gene_id
 query <- getBM(attributes = c('ensembl_gene_id', 'external_gene_name','gene_biotype'),filters = c('ensembl_gene_id'),values = list(filtering),mart = ensembl)
 
 ```
+<br>
 
 Here we filtered the query with only the genes that are coding genes.
 ```{r}
 query_protein_coding <- query %>% 
                         filter(gene_biotype == 'protein_coding')
 ```
+<br>
 
 After that, we filter both r_anno_df and raw_counts_df based on the enesembl_gene_id of the query containing the protein-coding gene.
 ```{r}
@@ -64,7 +71,8 @@ raw_count_df_pro_cod <- raw_counts_df[which(rownames(raw_counts_df) %in% query_p
 
 ```
 
-
+***
+### Task 3
 3. Perform differential expression analysis using edgeR package and select up- and down-regulated genes using a p-value cutoff of 0.01, a log fold change ratio >1.5 for up-regulated genes and < (-1.5) for down-regulated genes and a log CPM >1. Relax the thresholds if no or few results are available.
   a. Use the workflow we developed during the course
   b. Filter raw counts data retaining only genes with a raw count >20 in at least 5 Cases or 5 Control samples
@@ -74,6 +82,7 @@ raw_count_df_pro_cod <- raw_counts_df[which(rownames(raw_counts_df) %in% query_p
 library(edgeR)
 library(fgsea)
 ```
+<br>
 
 Here we set the thresholds to remove genes with low signals, this is needed because those genes have low statistical power and give us no information.
 ```{r}
@@ -81,6 +90,7 @@ count_thr <- 20 # raw counts data retaining only genes with a raw count >20
 
 repl_thr <- 5 # 5 Cases or 5 Control samples
 ```
+<br>
 
 We count how many replicates in each group satisfy the count threshold. This passage is needed to apply the first threshold and eliminate the rows which don't satisfy it. We create the filter_vec, a vector of samples that surpass the thresholds with raw count >= 20.
 ```{r}
@@ -90,6 +100,7 @@ filter_vec <- apply(raw_count_df_pro_cod,1, function(y) max(by(y,c_anno_df$condi
 table(filter_vec)
 
 ```
+<br>
 
 Then we create a new dataframe filtered based on the filter_vec with a threshold on the replicates 
 ```{r}
@@ -98,6 +109,7 @@ filter_count_df <- raw_count_df_pro_cod[filter_vec >= repl_thr,]
 dim(filter_count_df) # the rows represent the number of transcripts that satisfy the threshold  
 
 ```
+<br>
 
 Update the gene annotation using the filter. The gene annotation file must be consistent with the data files we are using.
 ```{r}
@@ -105,6 +117,7 @@ filter_anno_df <- r_anno_df_pro_cod[rownames(filter_count_df),] # we filter the 
 dim(filter_anno_df) # the number of row is equal to the number of row of the file filter_count_df
 
 ```
+<br>
 
 Now we can proceed with the DEG analysis using edgeR.
 First, we create a DGElist object using the function DGEList. This object contains all the information needed for the next steps (counts (=transcript counts), groups (=), and samples).
@@ -112,13 +125,14 @@ First, we create a DGElist object using the function DGEList. This object contai
 edge_c <- DGEList(counts = filter_count_df, group = c_anno_df$condition, samples = c_anno_df, genes = filter_anno_df)
 edge_c
 ```
-
+<br>
 
 Normalization using calcNormFactor and the TMM method. This method allows us to perform intra and inter-normalization of the data. A scaling factor is calculated based on the library size, plus with the TMM method the normalization focuses on the convergence of the means.
 ```{r}
 edge_n <- calcNormFactors(edge_c,method = 'TMM')
 edge_n # identical to edge_c just a column called normalization factor is added.
 ```
+<br>
 
 We can then create a CPM table to normalize expression values. We use the CPM function and transform the result in a dataframe with function as.data.frame().
 Also we create another CPM table in log10 transformation.
@@ -130,6 +144,7 @@ cpm_table_log <- as.data.frame(round(log10(cpm(edge_n)+1),2))
 head(cpm_table_log)
 
 ```
+<br>
 
 We can now define the design to perform the DE analysis. We build a model without the intercept.
 ```{r}
@@ -138,6 +153,7 @@ colnames(desing) <- levels(edge_n$samples$group)
 rownames(desing) <- edge_n$samples$sample
 desing
 ```
+<br>
 
 Then, we estimate the dispersion providing to the command estimateDisp the object containing the normalized factors and the design. The obtained object is used to fit the data.
 ```{r}
@@ -145,29 +161,34 @@ edge_d <- estimateDisp(edge_n,design = desing)
 View(edge_d)
 
 ```
+<br>
 
 We can now fit the data using glmQLFIT to retrieve the p-values. The data is modeled using a negative binomial distribution.
 ```{r}
 edge_f <- glmQLFit(edge_d,design = desing)
 View(edge_f)
 ```
+<br>
 
 We define the contrast, which corresponds to the conditions to be compared.
 ```{r}
 contro <- makeContrasts('case-control', levels = desing)
 ```
+<br>
 
 We fit again the model using the contrast created.
 ```{r}
 edge_t <- glmQLFTest(edge_f,contrast = contro) # contrin the results of the DE Analysis 
 View(edge_t)
 ```
+<br>
 
 We sort the result by fold change by using the function TopTags and expressing a cutoff and sorting.
 ```{r}
 DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 because we took into consideration all the variables inside edge_t, so 99 percent of singificativity of the test 
 View(DEGs)
 ```
+<br>
 
 We add a new column to the DEGs dataframe called class. Used to express the values of the fold change of the transcripts.
 The selection is based on the log fold change ratio (>1.5 for up-regulated genes and < (-1.5) for down-regulated genes) and a log CPM (>1 for both cases).
@@ -180,6 +201,7 @@ DEGs <- DEGs[order(DEGs$logFC, decreasing = T),] # we order based on the fold ch
 View(DEGs)
 table(DEGs$class)
 ```
+<br>
 
 Display the results using a volcano plot (x-axes: log FoldChange, y-axes: inverse function of the p-value).
 We can see the most significant DEGs colored in green, which are genes that surpass a threshold set on both the p-value and the Fold Change.
@@ -193,6 +215,7 @@ par(fig=c(0,1, 0,1), mar=c(4,4,1,2), mgp=c(2, 0.75,0))
 plot(DEGs$logFC,-log(DEGs$PValue, base=10), xlab=xlabel,ylab = ylabel, col=ifelse(DEGs$class=="=", "grey70", "olivedrab4"), pch=20, frame.plot=TRUE, cex=0.8, main="Volcano plot") %>% 
 abline(v = 0, lty = 2, col="grey20")
 ```
+<br>
 
 We can also represent the genes using a heatmap. A clustering process is operated. We plot only up or down expressed genes using data from both the normalized CPM and the log transformation of the CPM table.
 We can see that thanks to clusterization, chunks of expressed genes are outlined. Specifically, in the case of the CPM log table, a more refinement clusterization is observed, and minor contamination at the level of the division between "case" samples and "control" samples is observed. We need to remember that contamination that took place during the collection of tissue samples is able to influence the clustering process.
@@ -209,7 +232,8 @@ heatmap(as.matrix(cpm_table[which(rownames(cpm_table) %in% DEGs$ensembl_gene_id[
 heatmap(as.matrix(cpm_table_log[which(rownames(cpm_table_log) %in% DEGs$ensembl_gene_id[which(DEGs$class != '=')]),]),ColSideColors = col, cexCol = 0.5, margins = c(4,4), col = pal, cexRow = 0.2) 
 ```
 
-
+***
+### Task 4
 4. Perform gene set enrichment analysis using clusterProfiler R package.
   a. Perform both GO (BP and MF) and WP analysis
   b. Report the top 10 enriched GO terms and the top 10 enriched WP pathways resulting from both up- and down-regulated gene lists
@@ -218,18 +242,21 @@ heatmap(as.matrix(cpm_table_log[which(rownames(cpm_table_log) %in% DEGs$ensembl_
 library(clusterProfiler)
 library(org.Hs.eg.db)
 ```
+<br>
 
 We create the convert dataframe, that is used to map the ensembl_gene_id to eneterzgene_id and the external_gene_name  
 ```{r}
 convert<-getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "external_gene_name"), filter=c("ensembl_gene_id"), values=DEGs$ensembl_gene_id, mart=ensembl)
 
 ```
+<br>
 
 We add the information of convert in the initial file of DEGs by using the command merge.
 ```{r}
 DEGs<-merge(DEGs, convert, by.x = "ensembl_gene_id", by.y = "ensembl_gene_id")
 
 ```
+<br>
 
 Then we remove the NA and the duplicates inside the new DEGs.
 ```{r}
@@ -237,6 +264,7 @@ DEGs<-DEGs[which(!is.na(DEGs$entrezgene_id)),]
 DEGs<-DEGs[-which(duplicated(DEGs$entrezgene_id)),]
 
 ```
+<br>
 
 We create a new list of only the up-regulated genes. 
 ```{r}
@@ -244,6 +272,7 @@ We create a new list of only the up-regulated genes.
 UPDegs <- DEGs %>% filter(class == '+') # up regulated 
 
 ```
+<br>
 
 Perform Gene Ontology enrichment analysis (biological process).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here BP for biological process and the methods to adjust the p-value.
@@ -264,6 +293,7 @@ heatplot(ego_BP_UP, showCategory = 2)  # gene associated with the top two enrich
 head(ego_BP_UP,10)
 
 ```
+<br>
 
 Perform Gene Ontology enrichment analysis (molecular function).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here MF for molecule function and the methods to adjust the p-value.
@@ -283,6 +313,7 @@ heatplot(ego_MF_UP, showCategory = 2) # gene associated with the top two enriche
 head(ego_MF_UP,10)
 
 ```
+<br>
 
 We perform KEGG enrichment analysis.
 We use function enrichWP to retrieve the list of genes from the wiki pathways, we can see which pathways are more expressed. 
@@ -295,7 +326,7 @@ head(eWP_UP, 10)
 
 ```
 The most expressed one is the Vitamin D receptor pathway.
-
+<br>
 
 Then we proceed with the same processes but for down-regulated: so we create a new list of only the down-regulated genes.
 We needed to change the thresholds value in all the following analysis. For the enrichGO the set thresholds are still such to obtain good and significative results. While for the KEGG analysis we get p-value adjusted higher than 0.1 indicating that the results can't be significative. 
@@ -338,8 +369,10 @@ head(eWP_DW, 10)
 
 ```
 
-
+***
+### Task 5
 5. Use the pathview R package to visualize one pathway you find enriched using the up-regulated gene list.
+<br>
 
 We can use the library pathway and specifically the function pathway that generates a local cartoon of the pathway of interest underlying the DEGs genes using specific colors. A measure of the DE is needed, here we use the Log Fold Change.
 The pathway we represent is chosen by looking at the top 10 expressed pathways from point 4, specifically, we selected the 'Vitamin D receptor pathway' for which we found in https://www.genome.jp/entry/hsa:7421 the corresponding pathway ID code hsa04928 for Parathyroid hormone synthesis, secretion, and action.
@@ -350,9 +383,11 @@ names(logFC) <-UPDegs$entrezgene_id
 pathview(gene.data = logFC, pathway.id = 'hsa04928',species = 'human') 
 ```
 
-
+***
+### Task 6
 6. Identify which transcription factors (TFs) have enriched scores in the promoters of all up-regulated (or down-regulated if you prefer) genes.
   a. use a window of 500 nucleotides upstream each gene.
+<br>
 
 We choose to search for transcription factors (TFs) with enriched scores in the promoters of all up-regulated genes.
 We first retrieved the sequences of the promoters using the function getSequence and explicating the promoter identifier in the parameter seqType, using a window of 500 nucleotides upstream.
@@ -381,10 +416,14 @@ TF_enrichment
 plot(TF_enrichment[1:5]) # the first 5
 
 ```
+<br>
 PDLIM5,JUN,JUNB,CEBPB based on the literature are all genes related to thyroid carcinoma, more in general all the 5 genes are assosciated to carcinoma.
+<br>
 
-
+***
+### Task 7
 7. Select one among the top enriched TFs, compute the empirical distributions of scores for all PWMs that you find in MotifDB for the selected TF and determine for all of them the distribution (log2) threshold cutoff at 99.75%.
+<br>
 
 We chose to analyze the first TF among the top enriched ones. 
 We create an object containing the metadata related to the chosen TF and the corresponding PPM using the function query(). We use the PPM to compute the PWM matrix and the distribution of scores, using the function motifEcdf.
@@ -402,9 +441,13 @@ threshlod
 
 ```
 In this case the threshold cutoff at 99.75% is 9.048089.
+<br>
 
+***
+### Task 8
 8. Identify which up-regulated (or down-regulated depending on the choice you made at point 7) genes have a region in their promoter (defined as previously) with binding scores above the computed thresholds for any of the previously selected PWMs.
 a. Use pattern matching as done during the course
+<br>
 
 We first compute the scores using the motifScores function. For each PWM we apply the cutoff and we obtain matrices in which the rows represent the promoters and the columns the motifs. Here we obtain a matrix 688 x 1 since we are investigating one motif (=the one of the TF selected in the point above). Each matrix box is associated with a score representing the match of the TF motif to the promoter.
 We then calculate how good is the TF in binding the promoters, by calculating the frequency of the matches that are above a fixed threshold (the threshold computed in the previous point at 99.75%).
@@ -416,17 +459,24 @@ length(which(apply(score,1,sum) > 0)) /length(score)
 
 ```
 0.9287791 is the result, indicating that the selected TF can bind almost all the promoters with a good affinity, as we expected since we chose the top enriched TF.
+<br>
 
-
+***
+### Task 9
 9. Use STRING database to find PPI interactions among differentially expressed genes and export the network in TSV format.
+<br>
 
 We created a .txt file containing all the gene_names of the up-regulated genes identified in the previous points. We then uploaded the file to the STRING tool to obtain and create a network. We finally downloaded the output in .tsv format, the file contains all the information on the edges found between the input genes (=our nodes).
 ```{r}
 write.table(unique(UPDegs$external_gene_name.x),sep = '\t', file = 'UPDEGs.txt',row.names = F, col.names = F, quote = T)
 ```
+<br>
 
-
+***
+### Task 10
 10. Import the network in R and using igraph package and identify and plot the largest connected component. 
+<br>
+<br>
 
 We first created the node annotations using bioMart. We filtered using the up-regulated genes names and selected as attributes the gene id, the description, the biotype, the start and end position, the chromosome name, and the strand.
 We then reduced the nodes, eliminating repetitions.
