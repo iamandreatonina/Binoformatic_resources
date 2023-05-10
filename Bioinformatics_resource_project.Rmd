@@ -1,9 +1,11 @@
 ---
 title: "Bioinformatics_resource_project"
 author: "Andrea Tonina & Gloria Lugoboni"
-date: "2023-0-0"
+date: "2023-06"
 output: html_document
 ---
+> Everything can be found in :https://github.com/iamandreatonina/Bioinformatics_Romanel_project-
+
 # **Bioinformatics resource project with data set of Thyroid carcinoma**
 
 1. Load the RData file. The following three data-frames are available:
@@ -124,7 +126,6 @@ Also we create another CPM table in log10 transformation.
 cpm_table <- as.data.frame(round(cpm(edge_n),2)) # the library size is scaled by the normalization factor
 head(cpm_table)
 
-###########################
 cpm_table_log <- as.data.frame(round(log10(cpm(edge_n)+1),2))
 head(cpm_table_log)
 
@@ -164,12 +165,13 @@ View(edge_t)
 
 We sort the result by fold change by using the function TopTags and expressing a cutoff and sorting.
 ```{r}
-DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 becasue w e took into consideration all the vatiables inside edge_t, so 99 percent of singificativity of the test 
+DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 because we took into consideration all the variables inside edge_t, so 99 percent of singificativity of the test 
 View(DEGs)
 ```
 
 We add a new column to the DEGs dataframe called class. Used to express the values of the fold change of the transcripts.
 The selection is based on the log fold change ratio (>1.5 for up-regulated genes and < (-1.5) for down-regulated genes) and a log CPM (>1 for both cases).
+From the contingency table of our DEGs we can see that the up regulated genes correspond to the 7% of the total and the down regulated are the 2.8% of the total.
 ```{r}
 DEGs$class <- '='
 DEGs$class[which(DEGs$logCPM > 1 & DEGs$logFC > 1.5)] = '+'
@@ -181,7 +183,7 @@ table(DEGs$class)
 
 Display the results using a volcano plot (x-axes: log FoldChange, y-axes: inverse function of the p-value).
 We can see the most significant DEGs colored in green, which are genes that surpass a threshold set on both the p-value and the Fold Change.
-We can see that there are a lot of DEGs, both up (right side of the plot) or down (left side of the plot) expressed.
+We can see that there are a lot of DEGs, both up (right side of the plot) or down (left side of the plot) expressed. We have also a confirmation of teh fact that we have more DEGs upregulated compared to the down regulated.
 ```{r}
 input_df<-DEGs
 xlabel<- "log2 FC control vs case"
@@ -245,6 +247,8 @@ UPDegs <- DEGs %>% filter(class == '+') # up regulated
 
 Perform Gene Ontology enrichment analysis (biological process).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here BP for biological process and the methods to adjust the p-value.
+The barplot and the dotplot return us the  counts of top 10 enriched terms based on the p-value. 
+The heatplot shows us the genes associated to the top two enriched terms, in this case seems all the genes are shared between the two terms except for TGM1.
 ```{r}
 
 ego_BP_UP <- enrichGO(gene = UPDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'BP',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
@@ -263,6 +267,7 @@ head(ego_BP_UP,10)
 
 Perform Gene Ontology enrichment analysis (molecular function).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here MF for molecule function and the methods to adjust the p-value.
+The barplot and the dotplot return us the  counts of top 10 enriched terms based on the p-value. The heatplot shows us the genes associated to the top two enriched terms, we can see that there are not shared genes, indeed they are part of different molecular functions.
 ```{r}
 
 ego_MF_UP <- enrichGO(gene = UPDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'MF',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
@@ -280,7 +285,7 @@ head(ego_MF_UP,10)
 ```
 
 We perform KEGG enrichment analysis.
-We use function enrichWP to retrieve the list of genes from the wiki pathways, we can see which pathways are more expressed.
+We use function enrichWP to retrieve the list of genes from the wiki pathways, we can see which pathways are more expressed. 
 ```{r}
 library(pathview)
 
@@ -289,16 +294,18 @@ eWP_UP<-enrichWP(gene=UPDegs$entrezgene_id, organism ='Homo sapiens',pvalueCutof
 head(eWP_UP, 10)
 
 ```
+The most expressed one is the Vitamin D receptor pathway.
 
-Then we proceed with the same processes but for down-regulated:
-So we create a new list of only the down-regulated genes.
+
+Then we proceed with the same processes but for down-regulated: so we create a new list of only the down-regulated genes.
+We needed to change the thresholds value in all the following analysis. For the enrichGO the set thresholds are still such to obtain good and significative results. While for the KEGG analysis we get p-value adjusted higher than 0.1 indicating that the results can't be significative. 
 ```{r}
 
 DWDegs <- DEGs %>% filter(class == '-') 
 
 # biologica process of GO analysis 
 
-ego_BP_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'BP',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
+ego_BP_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'BP',pAdjustMethod = 'BH',pvalueCutoff = 0.1, qvalueCutoff =  0.1)
 
 View(ego_BP_DW)
 
@@ -312,7 +319,7 @@ head(ego_BP_DW,10)
 
 # molecular function GO
 
-ego_MF_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'MF',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
+ego_MF_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'MF',pAdjustMethod = 'BH',pvalueCutoff = 0.1, qvalueCutoff =  0.1)
 
 View(ego_MF_DW)
 
@@ -325,8 +332,7 @@ heatplot(ego_MF_DW, showCategory = 2)
 head(ego_MF_DW,10)
 
 # KEGG enrichment
-# enrichWP -> retrive the list of genes from the wiki pathways
-eWP_DW<-enrichWP(gene=DWDegs$entrezgene_id, organism ='Homo sapiens',pvalueCutoff = 0.05, qvalueCutoff =  0.1)
+eWP_DW<-enrichWP(gene=DWDegs$entrezgene_id, organism ='Homo sapiens',pvalueCutoff = 0.5, qvalueCutoff =  0.5)
 
 head(eWP_DW, 10)
 
@@ -351,7 +357,8 @@ pathview(gene.data = logFC, pathway.id = 'hsa04928',species = 'human')
 We choose to search for transcription factors (TFs) with enriched scores in the promoters of all up-regulated genes.
 We first retrieved the sequences of the promoters using the function getSequence and explicating the promoter identifier in the parameter seqType, using a window of 500 nucleotides upstream.
 Then, we used the DNAStringSet function to create a DNAString object, needed to operate the motif enrichment.
-We can now operate the enrichment and thanks to the function groupReport we obtain the TF enrichments across many sequences.
+We can now operate the enrichment and thanks to the function groupReport we obtain the TFenrichments across many sequences.
+By looking at the top 5 ranked transcription factors we can see that all the p-values are highly significative, meaning that the motifs are over-represented in the test sequences suggesting that the motifs are present for a reason, such as a biological function. There is also a similarity on the Weighted matrices with a high presence of G bases, indeed there are positions that are conserved in all 5 motifs.
 ```{r}
 
 Seq_up <- getSequence(id = UPDegs$external_gene_name.x, type = 'hgnc_symbol',seqType = 'gene_flank', upstream = 500,mart = ensembl)
@@ -374,6 +381,7 @@ TF_enrichment
 plot(TF_enrichment[1:5]) # the first 5
 
 ```
+PDLIM5,JUN,JUNB,CEBPB based on the literature are all genes related to thyroid carcinoma, more in general all the 5 genes are assosciated to carcinoma.
 
 
 7. Select one among the top enriched TFs, compute the empirical distributions of scores for all PWMs that you find in MotifDB for the selected TF and determine for all of them the distribution (log2) threshold cutoff at 99.75%.
@@ -389,13 +397,11 @@ PWM_tfs <- toPWM(as.list(tfmotif))
 ecdf_tfs <- motifEcdf(PWM_tfs, organism = 'hg19', quick = T)
 threshlod = log2(quantile(ecdf_tfs$`Hsapiens-hPDI-PDLIM5`, 1-25e-4))
 
-# plot(ecdf_tfs$`Hsapiens-hPDI-PDLIM5`(v = knots(ecdf_tfs$`Hsapiens-hPDI-PDLIM5`)),main = 'ecdf distribution')
-
 threshlod
 
 
 ```
-
+In this case the threshold cutoff at 99.75% is 9.048089.
 
 8. Identify which up-regulated (or down-regulated depending on the choice you made at point 7) genes have a region in their promoter (defined as previously) with binding scores above the computed thresholds for any of the previously selected PWMs.
 a. Use pattern matching as done during the course
@@ -427,7 +433,8 @@ We then reduced the nodes, eliminating repetitions.
 We imported the information obtained by STRING and filtered it keeping only the edges between nodes that were present in our node variable. We operated a similar operation eliminating the nodes not found in the link variable.
 We finally constructed the network using the library igraph, specifically the function graph_from_data_frame, defining as edges the link variable and as vertices the nodes variable.
 The identification of the largest connected component was possible using the function components() of igraph with which it is possible to specify if we are looking at weakly or strongly connected components. It is therefore possible to obtain the cluster of membership for each node and identify the largest cluster between the defined ones. Here we found cluster 1 as the largest, with a total of 510 nodes, it was possible to extract it from the total graph using the function induced_subgraph, specifying the nodes to extract.
-Since the total graph and the subgraph were large graphs with >500 nodes we decided to plot them using the ggnet2 function, part of the GGally package. We also decided to resize and color the nodes based on the additional information on the number of outdegree edges.
+Since the total graph and the subgraph are large graphs with >500 nodes we decided to plot them using the ggnet2 function, part of the GGally package. We also decided to resize and color the nodes based on the additional information on the number of outdegrees, meaning the number of edges that are coming out from each node. From both plots, we can see that the more central node are the ones characterized by the higher outdegree, as expected based on their position. 
+Contrary to the first graph, in the second one all the nodes are connected, indeed we selected only the strongly connected components.
 ```{r}
 library(igraph)
 library(GGally)
@@ -468,6 +475,3 @@ clrname <- c('0'='lightgray','1'='#FF1744','2'='#F0A830','3'='#A155B9','4'='#165
 ggnet2(net.c,size = 'outdegree', max_size = 4 ,color = clrvek, label = T, label.size = 2, legend.position = 'bottom', size.cut = 5, color.legend = 'clr~degree',palette = clrname)
 
 ```
-
-
-Everything can be found in :https://github.com/iamandreatonina/Bioinformatics_Romanel_project-
