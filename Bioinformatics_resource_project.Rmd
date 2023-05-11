@@ -525,3 +525,16 @@ clrname <- c('0'='lightgray','1'='#FF1744','2'='#F0A830','3'='#A155B9','4'='#165
 ggnet2(net.c,size = 'outdegree', max_size = 4 ,color = clrvek, label = T, label.size = 2, legend.position = 'bottom', size.cut = 5, color.legend = 'clr~degree',palette = clrname)
 
 ```
+We also tried to get a clsutering image of the sub graph bu the obtained hclust is not easy to plot due to the fact that there are too many nodes, the same goes for 
+```{r}
+ceb<-cluster_edge_betweenness(net.c, directed=F)
+plot_dendrogram(ceb,mode = 'hclust')
+plot(ceb,net.c)
+```
+
+
+
+```{r}
+l<-layout_with_lgl(net.c)
+plot(net.c, vertex.label=NA, vertex.size=3, layout=l)
+```
