@@ -525,16 +525,28 @@ clrname <- c('0'='lightgray','1'='#FF1744','2'='#F0A830','3'='#A155B9','4'='#165
 ggnet2(net.c,size = 'outdegree', max_size = 4 ,color = clrvek, label = T, label.size = 2, legend.position = 'bottom', size.cut = 5, color.legend = 'clr~degree',palette = clrname)
 
 ```
-We also tried to get a clsutering image of the sub graph bu the obtained hclust is not easy to plot due to the fact that there are too many nodes, the same goes for 
+<br>
+As a further analysis, we tried to get a clustering image of the subgraph, since a large number of nodes, we defined the layout before plotting using the function-specific for large graphs which is layout_with_lgl(). The obtained dendrogram of the graph clusterized with community detection based on edge betweenness is not easy to plot since there are too many nodes. The betweenness score of an edge measures the number of shortest paths through a graph. The idea behind this clustering process is that the edges connecting separate modules have high betweenness as all the shortest paths from one module to another must traverse through them.
 ```{r}
 ceb<-cluster_edge_betweenness(net.c, directed=F)
+l_1<-layout_with_lgl(net.c)
+plot(ceb,net.c, vertex.label=NA, vertex.size=1, layout=l_1, pad = 0.4, edge.color = 'gray60')
 plot_dendrogram(ceb,mode = 'hclust')
-plot(ceb,net.c)
+
 ```
-
-
-
+<br>
+Another cluster is performed using the function cluster_label_prop. This clusterization process is based on propagating labels, and detecting community structure in networks. The idea is that each vertex is associated with a unique label and then thanks to the neighborhood the labels are updated, defining clusters of vertexes.
+As for the point above, we defined the layout of the large plot using layout_with_lgl.
 ```{r}
-l<-layout_with_lgl(net.c)
-plot(net.c, vertex.label=NA, vertex.size=3, layout=l)
+clp<-cluster_label_prop(net.c)
+plot(clp, net.c, vertex.label=NA, vertex.size=1, layout=l_1,  pad = 0.4, edge.color = 'gray60')
 ```
+<br>
+Finally, another kind of clusterization algorithm is the one used by the function cluster_fast_greedy, which is used for community detection based on greedy optimization of modularity. The algorithm tries to define clusters thanks to a process of optimization of the modularity score, a measure of the strength of the division of a network into modules.
+Also here we use the layout defined with the function layout_with_lgl to plot the large subgraph.
+```{r}
+cfg<-cluster_fast_greedy(net.c)
+plot(cfg, net.c, vertex.label=NA, vertex.size=1, layout=l_1,  pad = 0.4, edge.color = 'gray60')
+```
+<br>
+As can be inferred by the three plots of the graph above, this kind of analysis is not easy, indeed the high number of nodes rend more complex the visualization of the clusterization results.
