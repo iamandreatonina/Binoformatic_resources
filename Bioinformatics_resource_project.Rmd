@@ -17,9 +17,10 @@ output: html_document
 load('./file/Thyroid_carcinoma.RData')
 
 View(raw_counts_df)
-View(c_anno_df)
-View(r_anno_df)
 
+View(c_anno_df)
+
+View(r_anno_df)
 ```
 
 ***
@@ -29,7 +30,6 @@ View(r_anno_df)
   b. Next tasks should use the new data-frames you have created
 ```{r}
 library(biomaRt)
-library(tidyverse)
 library(tidyverse)
 ```
 <br>
@@ -43,7 +43,6 @@ listMarts()
 The function useMart enables us to select a biomart database to use and the associated datasets. We select those with the parameters biomart and dataset respectively. The object returned is a Mart Class and can be seen as a connection to the Biomart database selected.
 ```{r}
 ensembl <- useMart(biomart = 'ensembl', dataset = 'hsapiens_gene_ensembl')
-
 ```
 <br>
 
@@ -51,7 +50,6 @@ By using the library biomart we can retrieve a query from BioMart database using
 ```{r}
 filtering <- r_anno_df$ensembl_gene_id
 query <- getBM(attributes = c('ensembl_gene_id', 'external_gene_name','gene_biotype'),filters = c('ensembl_gene_id'),values = list(filtering),mart = ensembl)
-
 ```
 <br>
 
@@ -68,7 +66,6 @@ r_anno_df_pro_cod <- r_anno_df %>%
                      filter(ensembl_gene_id %in% query_protein_coding$ensembl_gene_id)
 
 raw_count_df_pro_cod <- raw_counts_df[which(rownames(raw_counts_df) %in% query_protein_coding$ensembl_gene_id),]
-
 ```
 
 ***
@@ -94,35 +91,33 @@ repl_thr <- 5 # 5 Cases or 5 Control samples
 
 We count how many replicates in each group satisfy the count threshold. This passage is needed to apply the first threshold and eliminate the rows which don't satisfy it. We create the filter_vec, a vector of samples that surpass the thresholds with raw count >= 20.
 ```{r}
-
 filter_vec <- apply(raw_count_df_pro_cod,1, function(y) max(by(y,c_anno_df$condition, function(x) sum(x >= count_thr))))
 #summary of the vector
 table(filter_vec)
-
 ```
 <br>
 
-Then we create a new dataframe filtered based on the filter_vec with a threshold on the replicates 
+Then we create a new dataframe filtered based on the filter_vec with a threshold on the replicates, set before.
 ```{r}
-
 filter_count_df <- raw_count_df_pro_cod[filter_vec >= repl_thr,]
-dim(filter_count_df) # the rows represent the number of transcripts that satisfy the threshold  
 
+dim(filter_count_df) # the rows represent the number of transcripts that satisfy the threshold  
 ```
 <br>
 
 Update the gene annotation using the filter. The gene annotation file must be consistent with the data files we are using.
 ```{r}
 filter_anno_df <- r_anno_df_pro_cod[rownames(filter_count_df),] # we filter the gene annotation file
-dim(filter_anno_df) # the number of row is equal to the number of row of the file filter_count_df
 
+dim(filter_anno_df) # the number of row is equal to the number of row of the file filter_count_df
 ```
 <br>
 
 Now we can proceed with the DEG analysis using edgeR.
-First, we create a DGElist object using the function DGEList. This object contains all the information needed for the next steps (counts (=transcript counts), groups (=), and samples).
+First, we create a DGElist object using the function DGEList. This object contains all the information needed for the next steps (counts[=transcript counts], groups, and samples).
 ```{r}
 edge_c <- DGEList(counts = filter_count_df, group = c_anno_df$condition, samples = c_anno_df, genes = filter_anno_df)
+
 edge_c
 ```
 <br>
@@ -134,15 +129,13 @@ edge_n # identical to edge_c just a column called normalization factor is added.
 ```
 <br>
 
-We can then create a CPM table to normalize expression values. We use the CPM function and transform the result in a dataframe with function as.data.frame().
-Also we create another CPM table in log10 transformation.
+We can then create a CPM table to normalize expression values. We use the CPM function and transform the result in a dataframe with function as.data.frame(). Also we create another CPM table in log10 transformation.
 ```{r}
 cpm_table <- as.data.frame(round(cpm(edge_n),2)) # the library size is scaled by the normalization factor
 head(cpm_table)
 
 cpm_table_log <- as.data.frame(round(log10(cpm(edge_n)+1),2))
 head(cpm_table_log)
-
 ```
 <br>
 
@@ -158,14 +151,15 @@ desing
 Then, we estimate the dispersion providing to the command estimateDisp the object containing the normalized factors and the design. The obtained object is used to fit the data.
 ```{r}
 edge_d <- estimateDisp(edge_n,design = desing)
-View(edge_d)
 
+View(edge_d)
 ```
 <br>
 
-We can now fit the data using glmQLFIT to retrieve the p-values. The data is modeled using a negative binomial distribution.
+We can now fit the data using glmQLFIT to retrieve the p-values. The data is modeled using a negative binomial distribution, this is because we are working with RNA-seq data for which the read counts follow a negative binomial distribution. This distribution can be modeled via the package edgeR.
 ```{r}
 edge_f <- glmQLFit(edge_d,design = desing)
+
 View(edge_f)
 ```
 <br>
@@ -178,14 +172,15 @@ contro <- makeContrasts('case-control', levels = desing)
 
 We fit again the model using the contrast created.
 ```{r}
-edge_t <- glmQLFTest(edge_f,contrast = contro) # contrin the results of the DE Analysis 
+edge_t <- glmQLFTest(edge_f,contrast = contro) # contain the results of the DE Analysis 
+
 View(edge_t)
 ```
 <br>
 
-We sort the result by fold change by using the function TopTags and expressing a cutoff and sorting.
+We sort the result by fold change by using the function TopTags and expressing a cutoff for the p-value and sorting by fold change.
 ```{r}
-DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 because we took into consideration all the variables inside edge_t, so 99 percent of singificativity of the test 
+DEGs <- as.data.frame(topTags(edge_t,n = 16748 ,p.value = 0.01,sort.by = 'logFC')) # 16748 because we took into consideration all the variables inside edge_t, so 99 percent of significativity of the test 
 View(DEGs)
 ```
 <br>
@@ -198,14 +193,16 @@ DEGs$class <- '='
 DEGs$class[which(DEGs$logCPM > 1 & DEGs$logFC > 1.5)] = '+'
 DEGs$class[which(DEGs$logCPM > 1 & DEGs$logFC < (-1.5))] = '-'
 DEGs <- DEGs[order(DEGs$logFC, decreasing = T),] # we order based on the fold change
+
 View(DEGs)
+
 table(DEGs$class)
 ```
 <br>
 
 Display the results using a volcano plot (x-axes: log FoldChange, y-axes: inverse function of the p-value).
 We can see the most significant DEGs colored in green, which are genes that surpass a threshold set on both the p-value and the Fold Change.
-We can see that there are a lot of DEGs, both up (right side of the plot) or down (left side of the plot) expressed. We have also a confirmation of teh fact that we have more DEGs upregulated compared to the down regulated.
+We can see that there are a lot of DEGs, both up (right side of the plot) or down (left side of the plot) expressed. We have also a confirmation of the fact that we have more DEGs up-regulated compared to the down-regulated.
 ```{r}
 input_df<-DEGs
 xlabel<- "log2 FC control vs case"
@@ -218,7 +215,7 @@ abline(v = 0, lty = 2, col="grey20")
 <br>
 
 We can also represent the genes using a heatmap. A clustering process is operated. We plot only up or down expressed genes using data from both the normalized CPM and the log transformation of the CPM table.
-We can see that thanks to clusterization, chunks of expressed genes are outlined. Specifically, in the case of the CPM log table, a more refinement clusterization is observed, and minor contamination at the level of the division between "case" samples and "control" samples is observed. We need to remember that contamination that took place during the collection of tissue samples is able to influence the clustering process.
+We can see that thanks to clusterization, chunks of expressed genes are outlined. Specifically, in the case of the CPM log table, a more refinement clusterization is observed, and minor contamination at the level of the division between "case" samples (brown) and "control" samples (green) is observed. We need to remember that contamination that took place during the collection of tissue samples is able to influence the clustering process.
 From both plots a clear difference in expression between tumor and control samples is observed, indicating that the expression of the genes differs between the two cases, as expected since we are performing a DEGs analysis.
 ```{r}
 
@@ -247,30 +244,26 @@ library(org.Hs.eg.db)
 We create the convert dataframe, that is used to map the ensembl_gene_id to eneterzgene_id and the external_gene_name  
 ```{r}
 convert<-getBM(attributes=c("ensembl_gene_id", "entrezgene_id", "external_gene_name"), filter=c("ensembl_gene_id"), values=DEGs$ensembl_gene_id, mart=ensembl)
-
 ```
 <br>
 
 We add the information of convert in the initial file of DEGs by using the command merge.
 ```{r}
 DEGs<-merge(DEGs, convert, by.x = "ensembl_gene_id", by.y = "ensembl_gene_id")
-
 ```
 <br>
 
 Then we remove the NA and the duplicates inside the new DEGs.
 ```{r}
 DEGs<-DEGs[which(!is.na(DEGs$entrezgene_id)),]
-DEGs<-DEGs[-which(duplicated(DEGs$entrezgene_id)),]
 
+DEGs<-DEGs[-which(duplicated(DEGs$entrezgene_id)),]
 ```
 <br>
 
 We create a new list of only the up-regulated genes. 
 ```{r}
-
 UPDegs <- DEGs %>% filter(class == '+') # up regulated 
-
 ```
 <br>
 
@@ -278,8 +271,8 @@ Perform Gene Ontology enrichment analysis (biological process).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here BP for biological process and the methods to adjust the p-value.
 The barplot and the dotplot return us the  counts of top 10 enriched terms based on the p-value. 
 The heatplot shows us the genes associated to the top two enriched terms, in this case seems all the genes are shared between the two terms except for TGM1.
+By looking in the gene ontology browser, specifically at the GO Tree View, we retrieve the information that the extra cellular matrix organization GO term (which contain 322 genes) has as parent the external encapsulating structure organization GO term (which contains 324 genes).
 ```{r}
-
 ego_BP_UP <- enrichGO(gene = UPDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'BP',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
 
 View(ego_BP_UP)
@@ -291,13 +284,12 @@ dotplot(ego_BP_UP, showCategory= 10)  # first ten enriched terms
 heatplot(ego_BP_UP, showCategory = 2)  # gene associated with the top two enriched terms 
 
 head(ego_BP_UP,10)
-
 ```
 <br>
 
 Perform Gene Ontology enrichment analysis (molecular function).
 We use the function enrichGO by providing a list of symbols of up-regulated genes and the database of the human species (=gene model). Then we explicit the wanted ontology, here MF for molecule function and the methods to adjust the p-value.
-The barplot and the dotplot return us the  counts of top 10 enriched terms based on the p-value. The heatplot shows us the genes associated to the top two enriched terms, we can see that there are not shared genes, indeed they are part of different molecular functions.
+The barplot and the dotplot return us the  counts of top 10 enriched terms based on the p-value. The heatplot shows us the genes associated to the top two enriched terms, we can see that there are not shared genes, indeed they are part of different molecular functions. Specifically, looking at the GO Tree View, as done in the point above, we found out that the two terms are part of not connected parents. The GO term 'serine-type endopeptidase activity' is part of the GO term 'catalytic activity, acting on a protein' which is at the same level as the GO term 'structural matrix structural constituent' which is the parent of the GO term 'extracellular matrix structural constituent'. Indeed, no genes are shared between the two terms.
 ```{r}
 
 ego_MF_UP <- enrichGO(gene = UPDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'MF',pAdjustMethod = 'BH',pvalueCutoff = 0.05, qvalueCutoff =  0.05)
@@ -323,18 +315,20 @@ library(pathview)
 eWP_UP<-enrichWP(gene=UPDegs$entrezgene_id, organism ='Homo sapiens',pvalueCutoff = 0.05, qvalueCutoff =  0.1)
 
 head(eWP_UP, 10)
-
 ```
 The most expressed one is the Vitamin D receptor pathway.
 <br>
 
 Then we proceed with the same processes but for down-regulated: so we create a new list of only the down-regulated genes.
-We needed to change the thresholds value in all the following analysis. For the enrichGO the set thresholds are still such to obtain good and significative results. While for the KEGG analysis we get p-value adjusted higher than 0.1 indicating that the results can't be significative. 
 ```{r}
-
 DWDegs <- DEGs %>% filter(class == '-') 
+```
+<br>
 
-# biologica process of GO analysis 
+We needed to change the thresholds value in all the following analysis. For the enrichGO the set thresholds are still such to obtain good and significative results.
+Performing biological process function Gene Ontology enrichment analysis we were able to retrieve from the heatplot the genes associated to the top two enriched terms. We can see that there are all shared genes, indeed the GO term 'extracellular matrix organization' has as parent the GO term 'extracellular structure organization'.
+```{r}
+# biological process of GO analysis 
 
 ego_BP_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'BP',pAdjustMethod = 'BH',pvalueCutoff = 0.1, qvalueCutoff =  0.1)
 
@@ -347,7 +341,11 @@ dotplot(ego_BP_DW, showCategory= 10) # orderby default x
 heatplot(ego_BP_DW, showCategory = 2)
 
 head(ego_BP_DW,10)
+```
+<br>
 
+Performing molecular function Gene Ontology enrichment analysis we obtain heatplots that showed no shared genes, indeed they are part of different molecular functions. Specifically, looking at the GO Tree View, as done in the point above, we found out that the two terms are part of not connected parents. The GO term 'oxygen carrier activity' is part of the GO term 'molecular carrier activity' which is at the same level as the GO term 'structural molecule activity' which is the parent of the GO term 'extra cellular matrix structural constituent'. Indeed, no genes are shared between the two terms.
+```{r}
 # molecular function GO
 
 ego_MF_DW <- enrichGO(gene = DWDegs$external_gene_name.x, OrgDb = org.Hs.eg.db, keyType = 'SYMBOL', ont = 'MF',pAdjustMethod = 'BH',pvalueCutoff = 0.1, qvalueCutoff =  0.1)
@@ -361,12 +359,15 @@ dotplot(ego_MF_DW, showCategory= 10 )
 heatplot(ego_MF_DW, showCategory = 2)
 
 head(ego_MF_DW,10)
+```
+<br>
 
+For the KEGG analysis we get p-value adjusted higher than 0.1 indicating that the results can't be significative.
+```{r}
 # KEGG enrichment
 eWP_DW<-enrichWP(gene=DWDegs$entrezgene_id, organism ='Homo sapiens',pvalueCutoff = 0.5, qvalueCutoff =  0.5)
 
 head(eWP_DW, 10)
-
 ```
 
 ***
@@ -380,6 +381,7 @@ The pathway we represent is chosen by looking at the top 10 expressed pathways f
 library(pathview)
 logFC <-UPDegs$logFC
 names(logFC) <-UPDegs$entrezgene_id
+
 pathview(gene.data = logFC, pathway.id = 'hsa04928',species = 'human') 
 ```
 
@@ -395,7 +397,6 @@ Then, we used the DNAStringSet function to create a DNAString object, needed to 
 We can now operate the enrichment and thanks to the function groupReport we obtain the TFenrichments across many sequences.
 By looking at the top 5 ranked transcription factors we can see that all the p-values are highly significative, meaning that the motifs are over-represented in the test sequences suggesting that the motifs are present for a reason, such as a biological function. There is also a similarity on the Weighted matrices with a high presence of G bases, indeed there are positions that are conserved in all 5 motifs.
 ```{r}
-
 Seq_up <- getSequence(id = UPDegs$external_gene_name.x, type = 'hgnc_symbol',seqType = 'gene_flank', upstream = 500,mart = ensembl)
         # gene_flank rapresnet the promoters of the genes 
 View(Seq_up)
@@ -412,12 +413,13 @@ data("PWMLogn.hg19.MotifDb.Hsap")
 res_initial = motifEnrichment(new_Seq,PWMLogn.hg19.MotifDb.Hsap,score = 'affinity')
 
 TF_enrichment <- groupReport(res_initial)
-TF_enrichment
-plot(TF_enrichment[1:5]) # the first 5
 
+TF_enrichment
+
+plot(TF_enrichment[1:5]) # the first 5
 ```
 <br>
-PDLIM5,JUN,JUNB,CEBPB based on the literature are all genes related to thyroid carcinoma, more in general all the 5 genes are assosciated to carcinoma.
+PDLIM5,JUN,JUNB,CEBPB based on the literature are all genes related to thyroid carcinoma, more in general all the 5 genes are associated to carcinoma.
 <br>
 
 ***
@@ -433,12 +435,11 @@ Finally, we determined the threshold cutoff at 99.75% applying to the ecdf the q
 tfs<-TF_enrichment$target[1]
 tfmotif <- query(MotifDb,tfs)
 PWM_tfs <- toPWM(as.list(tfmotif))
+
 ecdf_tfs <- motifEcdf(PWM_tfs, organism = 'hg19', quick = T)
 threshlod = log2(quantile(ecdf_tfs$`Hsapiens-hPDI-PDLIM5`, 1-25e-4))
 
 threshlod
-
-
 ```
 In this case the threshold cutoff at 99.75% is 9.048089.
 <br>
@@ -454,11 +455,11 @@ We then calculate how good is the TF in binding the promoters, by calculating th
 ```{r}
 score = motifScores(new_Seq, PWM_tfs, raw.scores = F, cutoff = threshlod)
 
-length(which(apply(score,1,sum) > 0)) /length(score) 
-# we count the boxes that have alt least one score major that the threshold, then divided int for their number to get the frequency 
-
+# we count the boxes that have at least one score major that the threshold, then divided int for their number to get the frequency 
+freq = length(which(apply(score,1,sum) > 0)) /length(score) 
+freq
 ```
-0.9287791 is the result, indicating that the selected TF can bind almost all the promoters with a good affinity, as we expected since we chose the top enriched TF.
+0.9287791 is the result, which is the frequency indicating that the selected TF can bind almost all the promoters with a good affinity, as we expected since we chose the top enriched TF. We can see the frequency also in percentage, indeed ~93% of the promoters are bound with a good affinity by the selected TF.
 <br>
 
 ***
@@ -466,7 +467,7 @@ length(which(apply(score,1,sum) > 0)) /length(score)
 9. Use STRING database to find PPI interactions among differentially expressed genes and export the network in TSV format.
 <br>
 
-We created a .txt file containing all the gene_names of the up-regulated genes identified in the previous points. We then uploaded the file to the STRING tool to obtain and create a network. We finally downloaded the output in .tsv format, the file contains all the information on the edges found between the input genes (=our nodes).
+We created a .txt file containing all the gene_names of the up-regulated genes identified in the previous points. We then uploaded the file to the STRING tool to obtain and create a network. We finally downloaded the output in tsv format, the file contains all the information on the edges found between the input genes (= our nodes).
 ```{r}
 write.table(unique(UPDegs$external_gene_name.x),sep = '\t', file = 'UPDEGs.txt',row.names = F, col.names = F, quote = T)
 ```
