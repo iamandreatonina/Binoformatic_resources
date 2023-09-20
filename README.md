@@ -6,6 +6,8 @@ Topic: Perform an analysis of the selected dataset representing RNA-seq count da
 
 Dataset selected: [Thyroid carcinoma](https://github.com/iamandreatonina/Binoformatic_resources/tree/main/file)
 
+[Report](https://github.com/iamandreatonina/Binoformatic_resources/edit/main/README.md)
+
 ## Authors 
 
 Project developed by:
