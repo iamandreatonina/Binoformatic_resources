@@ -6,7 +6,7 @@ Project for the course of Bioinformatic Resources held by Alessandro Romanel (A.
 
 Dataset selected: [Thyroid carcinoma](https://github.com/iamandreatonina/Binoformatic_resources/tree/main/file)
 
-[Report](https://github.com/iamandreatonina/Binoformatic_resources/edit/main/README.md)
+[Report (both in Rmd and HTML) ](https://github.com/iamandreatonina/Binoformatic_resources/edit/main/Report)
 
 ## Authors 
 
