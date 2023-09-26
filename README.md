@@ -2,7 +2,7 @@
 
 Project in R for the course of Bioinformatic Resources, held by Alessandro Romanel (A.Y. 2022-2023).
 
-Topic: Perform an analysis of the selected dataset representing RNA-seq count data extracted from different cancer datasets from the Cancer Genome Atlas (TCGA).
+Topic: Perform an analysis of the selected dataset representing RNA-seq count data extracted from different cancer datasets from the Cancer Genome Atlas (TCGA).  From the original TCGA data, 50 cases (tumor samples) and 50 controls (normal samples) were randomly selected.
 
 Dataset selected: [Thyroid carcinoma](https://github.com/iamandreatonina/Binoformatic_resources/tree/main/file)
 
