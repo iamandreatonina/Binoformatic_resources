@@ -25,5 +25,5 @@ Project developed by:
 * Select one among the top enriched TFs, compute the empirical distributions of scores for all PWMs that you find in MotifDB for the selected TF, and determine for all of them the distribution (log2) threshold cutoff at 99.75%.
 * Identify which up-regulated genes have a region in their promoter with binding scores above the computed thresholds for any of the previously selected PWMs.
 9. Find PPI interactions among differentially expressed genes by using [STRING](https://string-db.org/) and export the network in TSV format.
-10. Import the network by using [`igraph`](https://cran.r-project.org/web/packages/igraph/index.html) package and identify and plot the largest connected component ( we also decided to use [`ggnet2`]( from [`GGally`](https://cran.r-project.org/web/packages/GGally/index.html) package).  
+10. Import the network by using [`igraph`](https://cran.r-project.org/web/packages/igraph/index.html) package and identify and plot the largest connected component ( we also decided to use [`ggnet2`](https://ggobi.github.io/ggally/reference/ggnet2.html) from [`GGally`](https://cran.r-project.org/web/packages/GGally/index.html) package).  
 
