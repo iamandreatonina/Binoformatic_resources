@@ -1,4 +1,4 @@
-# Bioninformatic Resources Project
+# Bioinformatic Resources Project
 
 Project in R for the course of Bioinformatic Resources, held by Alessandro Romanel (A.Y. 2022-2023).
 
